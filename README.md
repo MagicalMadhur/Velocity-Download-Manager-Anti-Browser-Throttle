@@ -52,10 +52,11 @@
 > [!TIP]
 > **No installation dependencies required!** The standalone package includes Python runtimes, UI kits, and video merging binaries out of the box.
 
-1. **[Download Velocity_Setup.exe](./Velocity_Setup.exe)** directly from this repository.
-2. Double-click the downloaded `Velocity_Setup.exe` file.
-3. Follow the Setup Wizard instructions to choose your custom installation path and create a desktop shortcut.
-4. Click **Launch Velocity** when the installer finishes!
+1. **Go to the [Releases](../../releases/latest)** tab of this repository.
+2. Download the `Velocity_Setup.exe` file.
+3. Double-click the downloaded `Velocity_Setup.exe` file.
+4. Follow the Setup Wizard instructions to choose your custom installation path and create a desktop shortcut.
+5. Click **Launch Velocity** when the installer finishes!
 
 ---
 
