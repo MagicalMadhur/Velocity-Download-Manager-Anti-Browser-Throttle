@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Velocity Download Manager Integration",
+  "version": "1.1",
+  "description": "Intercepts downloads and adds a Download Video button to media players.",
+  "permissions": [
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1:6800/"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
