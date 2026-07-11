@@ -137,12 +137,21 @@ class MainWindow(ctk.CTkFrame):
                             text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
                             anchor="w", font=("Segoe UI", 14, "bold"), command=self._open_settings)
         self.btn_settings.pack(fill="x", padx=10, pady=5)
+        
+        self.btn_about = ctk.CTkButton(self.sidebar_frame, text="ℹ About", fg_color="transparent", 
+                            text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+                            anchor="w", font=("Segoe UI", 14, "bold"), command=self._open_about)
+        self.btn_about.pack(fill="x", padx=10, pady=5)
             
         self._set_category("All Downloads")
         
     def _open_settings(self):
         from download_manager.gui.dialogs import SettingsDialog
         SettingsDialog(self.master)
+        
+    def _open_about(self):
+        from download_manager.gui.dialogs import AboutDialog
+        AboutDialog(self.master)
 
     def _set_category(self, category_name):
         self.current_category = category_name

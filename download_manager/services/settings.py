@@ -24,7 +24,8 @@ class SettingsManager:
             "speed_limit_kbps": 0,  # 0 means unlimited
             "max_threads_per_download": 32,
             "shutdown_after_download": False,
-            "play_sound_on_complete": True
+            "play_sound_on_complete": True,
+            "normalize_audio": True
         }
         self._load()
 

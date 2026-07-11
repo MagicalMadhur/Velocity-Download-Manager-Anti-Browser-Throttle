@@ -168,6 +168,7 @@ class SettingsDialog(ctk.CTkToplevel):
         
         self.shutdown_var = ctk.BooleanVar(value=self.settings.get("shutdown_after_download"))
         self.sound_var = ctk.BooleanVar(value=self.settings.get("play_sound_on_complete"))
+        self.normalize_var = ctk.BooleanVar(value=self.settings.get("normalize_audio"))
         
         self._build_ui()
         
@@ -213,6 +214,7 @@ class SettingsDialog(ctk.CTkToplevel):
         # --- Automation Tab ---
         ctk.CTkSwitch(tab_auto, text="Play sound when download completes", variable=self.sound_var).pack(anchor="w", padx=10, pady=20)
         ctk.CTkSwitch(tab_auto, text="Turn off PC when download queue is empty", variable=self.shutdown_var).pack(anchor="w", padx=10, pady=20)
+        ctk.CTkSwitch(tab_auto, text="Normalize Audio Volume (Matches YouTube playback)", variable=self.normalize_var).pack(anchor="w", padx=10, pady=20)
         
         # Buttons
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -261,7 +263,29 @@ class SettingsDialog(ctk.CTkToplevel):
             self.settings.set("max_threads_per_download", self.threads_var.get())
             self.settings.set("shutdown_after_download", self.shutdown_var.get())
             self.settings.set("play_sound_on_complete", self.sound_var.get())
+            self.settings.set("normalize_audio", self.normalize_var.get())
             self.destroy()
         except ValueError:
             import tkinter.messagebox
             tkinter.messagebox.showerror("Invalid Input", "Please enter valid numbers for settings.")
+
+class AboutDialog(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("About Velocity")
+        self.geometry("400x250")
+        
+        self.transient(parent)
+        self.grab_set()
+        
+        frame = ctk.CTkFrame(self)
+        frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(frame, text="Velocity Download Manager", font=("Segoe UI", 20, "bold")).pack(pady=(10, 5))
+        ctk.CTkLabel(frame, text="Version 1.0.1", font=("Segoe UI", 12)).pack(pady=(0, 10))
+        
+        ctk.CTkLabel(frame, text="Author: Madhur Chavan\nAll rights reserved.", font=("Segoe UI", 14)).pack(pady=5)
+        
+        ctk.CTkLabel(frame, text='"With love, to destroy IDM."', font=("Segoe UI", 14, "italic"), text_color="#007bff").pack(pady=15)
+        
+        ctk.CTkButton(frame, text="Close", command=self.destroy, width=100).pack(pady=10)

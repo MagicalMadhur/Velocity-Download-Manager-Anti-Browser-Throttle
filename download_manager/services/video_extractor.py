@@ -7,6 +7,7 @@ def extract_video_info(url, callback, error_callback):
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
+            'noplaylist': True,
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

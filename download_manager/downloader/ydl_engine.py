@@ -33,12 +33,24 @@ class YtdlpDownloadTask:
             'progress_hooks': [self._progress_hook],
             'ffmpeg_location': os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ffmpeg.exe')),
             'quiet': True,
-            'noprogress': True
+            'noprogress': True,
+            'noplaylist': True
         }
         
         limit_kbps = settings.get("speed_limit_kbps")
         if limit_kbps and limit_kbps > 0:
             ydl_opts['ratelimit'] = limit_kbps * 1024
+            
+        if settings.get("normalize_audio"):
+            ydl_opts['postprocessor_args'] = {
+                'ffmpeg': ['-af', 'loudnorm=I=-14:LRA=11:TP=-1.5']
+            }
+            # Force FFmpeg to process audio-only formats
+            if self.item.ydl_format_id and '+' not in self.item.ydl_format_id:
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'best'
+                }]
 
         try:
             self.report_status_cb(self.item.id, "Downloading")
