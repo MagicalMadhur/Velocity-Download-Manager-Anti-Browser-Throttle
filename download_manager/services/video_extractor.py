@@ -22,6 +22,8 @@ def extract_video_info(url, callback, error_callback):
                 seen = set()
                 
                 for f in info.get('formats', []):
+                    if f.get('ext') == 'webm':
+                        continue
                     has_video = f.get('vcodec') != 'none'
                     has_audio = f.get('acodec') != 'none'
                     
