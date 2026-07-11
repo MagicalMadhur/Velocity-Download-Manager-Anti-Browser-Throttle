@@ -53,10 +53,7 @@ class App:
         # Load history
         self._load_history()
         
-        # Clipboard monitoring
-        self.last_clipboard = ""
         self.running = True
-        threading.Thread(target=self._clipboard_monitor, daemon=True).start()
         
         # Browser Integration Server
         self.browser_server = BrowserIntegrationServer(self.add_download_from_browser)
@@ -163,29 +160,7 @@ class App:
                 item = task.item
                 self.repo.update_progress(item_id, item.downloaded_size, item.chunks_info)
 
-    def _clipboard_monitor(self):
-        url_regex = re.compile(
-            r'^(?:http|ftp)s?://' # http:// or https://
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
-            r'localhost|' #localhost...
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
-            r'(?::\d+)?' # optional port
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-            
-        while self.running:
-            try:
-                text = pyperclip.paste().strip()
-                if text != self.last_clipboard:
-                    self.last_clipboard = text
-                    if url_regex.match(text):
-                        # Ask user if they want to download
-                        # In a real app this would be a system notification or a small popup,
-                        # For now, we can just open the add dialog directly via Tkinter event
-                        self.root.after(0, lambda: self.add_download_from_clipboard(text))
-            except:
-                pass
-            time.sleep(1)
-            
+
     def _bring_to_front(self):
         if self.root.state() == 'withdrawn':
             if self.tray_icon:
@@ -236,10 +211,6 @@ class App:
         self.queue_manager.shutdown()
         self.browser_server.stop()
         self.root.after(0, self.root.quit)
-
-    def add_download_from_clipboard(self, url: str):
-        self.root.after(0, self._bring_to_front)
-        self.root.after(0, lambda: self.main_window._show_add_frame(url=url))
 
     def add_download_from_browser(self, url: str, filename: str = None, req_type: str = 'file'):
         self.root.after(0, self._bring_to_front)
