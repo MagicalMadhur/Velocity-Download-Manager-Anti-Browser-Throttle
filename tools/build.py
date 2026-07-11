@@ -24,7 +24,8 @@ args = [
     '--hidden-import=requests',
     '--hidden-import=sqlite3',
     '--hidden-import=tkinter',
-    '--hidden-import=customtkinter'
+    '--hidden-import=customtkinter',
+    '--hidden-import=download_manager.ydl_imports'
 ]
 
 print("Running PyInstaller...")
