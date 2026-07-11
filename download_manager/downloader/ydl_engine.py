@@ -35,7 +35,7 @@ class YtdlpDownloadTask:
             'quiet': True,
             'noprogress': True,
             'noplaylist': True,
-            'js_runtimes': ['node']
+            'js_runtimes': {'node': {}}
         }
         
         limit_kbps = settings.get("speed_limit_kbps")

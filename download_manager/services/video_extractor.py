@@ -8,7 +8,7 @@ def extract_video_info(url, callback, error_callback):
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
-            'js_runtimes': ['node']
+            'js_runtimes': {'node': {}}
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
