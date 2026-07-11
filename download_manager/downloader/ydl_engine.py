@@ -34,7 +34,8 @@ class YtdlpDownloadTask:
             'ffmpeg_location': os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ffmpeg.exe')),
             'quiet': True,
             'noprogress': True,
-            'noplaylist': True
+            'noplaylist': True,
+            'js_runtimes': ['node']
         }
         
         limit_kbps = settings.get("speed_limit_kbps")
@@ -42,8 +43,10 @@ class YtdlpDownloadTask:
             ydl_opts['ratelimit'] = limit_kbps * 1024
             
         if settings.get("normalize_audio"):
+            filter_args = ['-af', 'loudnorm=I=-14:LRA=11:TP=-1.5']
             ydl_opts['postprocessor_args'] = {
-                'ffmpeg': ['-af', 'loudnorm=I=-14:LRA=11:TP=-1.5']
+                'Merger': ['-c:a', 'aac'] + filter_args,
+                'ExtractAudio': filter_args
             }
             # Force FFmpeg to process audio-only formats
             if self.item.ydl_format_id and '+' not in self.item.ydl_format_id:
