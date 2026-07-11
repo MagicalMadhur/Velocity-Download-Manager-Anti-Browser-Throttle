@@ -301,7 +301,7 @@ class InstallerApp(ctk.CTk):
             winreg.CreateKey(hive, key_path)
             with winreg.OpenKey(hive, key_path, 0, winreg.KEY_WRITE) as key:
                 winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, "Velocity Download Manager")
-                winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, "1.0.1")
+                winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, "1.0.2")
                 winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "MagicalMadhur")
                 exe_path = os.path.join(self.install_dir, 'Velocity.exe')
                 winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, f'"{exe_path}",0')

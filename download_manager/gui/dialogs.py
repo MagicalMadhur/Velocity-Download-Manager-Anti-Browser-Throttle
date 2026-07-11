@@ -282,7 +282,7 @@ class AboutDialog(ctk.CTkToplevel):
         frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=20)
         
         ctk.CTkLabel(frame, text="Velocity Download Manager", font=("Segoe UI", 20, "bold")).pack(pady=(10, 5))
-        ctk.CTkLabel(frame, text="Version 1.0.1", font=("Segoe UI", 12)).pack(pady=(0, 10))
+        ctk.CTkLabel(frame, text="Version 1.0.2", font=("Segoe UI", 12)).pack(pady=(0, 10))
         
         ctk.CTkLabel(frame, text="Author: Madhur Chavan\nAll rights reserved.", font=("Segoe UI", 14)).pack(pady=5)
         
