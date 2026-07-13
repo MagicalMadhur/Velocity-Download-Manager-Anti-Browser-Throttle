@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Velocity Download Manager</title>
+    <style>
+        body {
+            width: 340px;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .header {
+            background-color: #0078d7; /* Windows blue-like */
+            color: white;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header .title {
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        .header .version {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 16px;
+            background-color: white;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 15px;
+            margin-bottom: 16px;
+            color: #222;
+        }
+        .description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #444;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .description a {
+            color: #005a9e;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .description a:hover {
+            text-decoration: underline;
+        }
+        .options {
+            background-color: white;
+            padding: 0 16px 16px 16px;
+        }
+        .option-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .option-item:last-child {
+            border-bottom: none;
+        }
+        .option-item input[type="checkbox"] {
+            margin-right: 14px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #0078d7;
+        }
+        .option-item label {
+            font-size: 15px;
+            cursor: pointer;
+            flex-grow: 1;
+            user-select: none;
+            color: #222;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <span class="title">Velocity Download Manager</span>
+        <span class="version">V 1.0.2</span>
+    </div>
+
+    <div class="content">
+        <div class="subtitle">Video Download Integration</div>
+        <div class="description">
+            Please refresh the page after enabling or disabling the extension. This extension automatically injects a download button onto video players to send them to the main app.<br><br>
+            <a href="#" id="supportLink">↗ Support our work</a>
+        </div>
+    </div>
+
+    <div class="options">
+        <div class="option-item">
+            <input type="checkbox" id="enableToggle">
+            <label for="enableToggle">Enable</label>
+        </div>
+        <!-- You can easily add more options here in the future like Dark Mode -->
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

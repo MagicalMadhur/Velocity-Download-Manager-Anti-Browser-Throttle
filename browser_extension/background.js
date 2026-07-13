@@ -1,3 +1,9 @@
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.storage.local.set({ enabled: true });
+});
+
+// Background script doesn't handle action clicks anymore because of popup
+
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
     // Intercept the download
     const downloadUrl = item.url;

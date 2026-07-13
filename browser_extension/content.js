@@ -1,8 +1,26 @@
+let isExtensionEnabled = true;
+
+chrome.storage.local.get(['enabled'], (result) => {
+    if (result.enabled !== undefined) {
+        isExtensionEnabled = result.enabled;
+    }
+});
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "toggle") {
+        isExtensionEnabled = request.enabled;
+        if (!isExtensionEnabled) {
+            document.querySelectorAll('.vdm-container').forEach(c => c.style.display = 'none');
+        }
+    }
+});
+
 function injectButton(videoElement) {
     if (videoElement.dataset.vdmInjected) return;
     videoElement.dataset.vdmInjected = "true";
     
     let container = document.createElement("div");
+    container.classList.add("vdm-container");
     container.style.position = "absolute";
     container.style.zIndex = "999999";
     container.style.display = "flex";
@@ -45,6 +63,11 @@ function injectButton(videoElement) {
         
         if (!document.body.contains(videoElement)) {
             container.remove();
+            return;
+        }
+
+        if (!isExtensionEnabled) {
+            container.style.display = 'none';
             return;
         }
         
