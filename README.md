@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python Version">
   <img src="https://img.shields.io/badge/platform-windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License">
-  <img src="https://img.shields.io/badge/version-1.0.2-green?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.3-green?style=for-the-badge" alt="Version">
 </p>
 
 ---
