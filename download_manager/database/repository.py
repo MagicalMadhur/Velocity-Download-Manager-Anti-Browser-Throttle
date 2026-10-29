@@ -15,13 +15,13 @@ class DownloadRepository:
         
         cursor.execute('''
             INSERT INTO downloads 
-            (url, filename, filepath, filesize, downloaded_size, status, chunks_info, etag, last_modified, sha256, category, add_time, is_ydl, ydl_format_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (url, filename, filepath, filesize, downloaded_size, status, chunks_info, etag, last_modified, sha256, category, add_time, is_ydl, ydl_format_id, headers)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             item.url, item.filename, item.filepath, item.filesize, 
             item.downloaded_size, item.status, item.chunks_info,
             item.etag, item.last_modified, item.sha256, item.category, add_time,
-            1 if item.is_ydl else 0, item.ydl_format_id
+            1 if item.is_ydl else 0, item.ydl_format_id, item.headers or "{}"
         ))
         
         conn.commit()
@@ -39,13 +39,14 @@ class DownloadRepository:
             UPDATE downloads 
             SET url=?, filename=?, filepath=?, filesize=?, downloaded_size=?, 
                 status=?, chunks_info=?, etag=?, last_modified=?, sha256=?, 
-                category=?, completion_time=?, is_ydl=?, ydl_format_id=?
+                category=?, completion_time=?, is_ydl=?, ydl_format_id=?, headers=?
             WHERE id=?
         ''', (
             item.url, item.filename, item.filepath, item.filesize, 
             item.downloaded_size, item.status, item.chunks_info,
             item.etag, item.last_modified, item.sha256, item.category, 
-            item.completion_time, 1 if item.is_ydl else 0, item.ydl_format_id, item.id
+            item.completion_time, 1 if item.is_ydl else 0, item.ydl_format_id, 
+            item.headers or "{}", item.id
         ))
         conn.commit()
         conn.close()
@@ -83,6 +84,8 @@ class DownloadRepository:
         for row in rows:
             d = dict(row)
             d['is_ydl'] = bool(d.get('is_ydl', 0))
+            if 'headers' not in d or d['headers'] is None:
+                d['headers'] = "{}"
             items.append(DownloadItem(**d))
         return items
 
@@ -96,6 +99,8 @@ class DownloadRepository:
         if row:
             d = dict(row)
             d['is_ydl'] = bool(d.get('is_ydl', 0))
+            if 'headers' not in d or d['headers'] is None:
+                d['headers'] = "{}"
             return DownloadItem(**d)
         return None
 

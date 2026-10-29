@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Velocity Download Manager Integration",
+  "version": "1.3",
+  "description": "Intercepts downloads with session/cookie preservation and adds a Download Video button to media players.",
+  "permissions": [
+    "downloads",
+    "cookies",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1:6800/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Velocity Download Manager",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

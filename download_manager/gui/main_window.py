@@ -50,7 +50,37 @@ class DownloadCard(ctk.CTkFrame):
                                         command=lambda: self.callbacks['on_delete'](self.item.id))
         self.btn_delete.pack(side="left", padx=5)
         
+        self._bind_context_menu()
         self.update_ui()
+
+    def _bind_context_menu(self):
+        for widget in [self, self.name_label, self.metrics_label, self.status_indicator]:
+            widget.bind("<Button-3>", self._show_context_menu)
+
+    def _show_context_menu(self, event):
+        import tkinter as tk
+        import pyperclip
+        menu = tk.Menu(self, tearoff=0)
+        
+        if self.item.status == "Completed" and os.path.exists(self.item.filepath):
+            menu.add_command(label="Open File", command=lambda: os.startfile(self.item.filepath))
+            menu.add_command(label="Open Folder", command=lambda: os.startfile(os.path.dirname(self.item.filepath)))
+            menu.add_separator()
+            
+        menu.add_command(label="Copy Download Link", command=lambda: pyperclip.copy(self.item.url))
+        
+        if 'on_refresh_url' in self.callbacks:
+            def _open_refresh():
+                RecoverURLDialog(self.winfo_toplevel(), lambda new_url: self.callbacks['on_refresh_url'](self.item.id, new_url))
+            menu.add_command(label="Refresh / Update URL...", command=_open_refresh)
+            
+        menu.add_separator()
+        menu.add_command(label="Delete", command=lambda: self.callbacks['on_delete'](self.item.id))
+        
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
         
     def update_ui(self):
         pct = 0.0
@@ -64,16 +94,18 @@ class DownloadCard(ctk.CTkFrame):
         speed_str = format_speed(self.item.speed)
         pct_str = f"{pct*100:.1f}%"
         
-        self.metrics_label.configure(text=f"{dl_str} / {size_str} ({pct_str}) • {speed_str} • {self.item.status}")
-        
         if self.item.status == "Completed":
+            self.metrics_label.configure(text=f"{size_str} • Completed")
             self.status_indicator.configure(text="✅", text_color="#28a745")
-        elif self.item.status == "Error":
-            self.status_indicator.configure(text="❌", text_color="#dc3545")
-        elif self.item.status in ["Paused", "Cancelled"]:
-            self.status_indicator.configure(text="⏸", text_color="gray")
+            self.progress_bar.set(1.0)
         else:
-            self.status_indicator.configure(text="📥", text_color="#007bff")
+            self.metrics_label.configure(text=f"{dl_str} / {size_str} ({pct_str}) • {speed_str} • {self.item.status}")
+            if self.item.status == "Error":
+                self.status_indicator.configure(text="❌", text_color="#dc3545")
+            elif self.item.status in ["Paused", "Cancelled"]:
+                self.status_indicator.configure(text="⏸", text_color="gray")
+            else:
+                self.status_indicator.configure(text="📥", text_color="#007bff")
 
 class MainWindow(ctk.CTkFrame):
     def __init__(self, master, callbacks: dict):
@@ -234,7 +266,7 @@ class MainWindow(ctk.CTkFrame):
         else:
             self._show_add_frame()
             
-    def _show_add_frame(self, url=None, filename=None, is_ydl=False, ydl_format_id=None):
+    def _show_add_frame(self, url=None, filename=None, is_ydl=False, ydl_format_id=None, headers=None):
         if url:
             self.url_var.set(url)
         if filename:
@@ -242,6 +274,7 @@ class MainWindow(ctk.CTkFrame):
             
         self._pending_is_ydl = is_ydl
         self._pending_ydl_format_id = ydl_format_id
+        self._pending_headers = headers
         
         # Refresh default path in case settings changed
         if not self.path_var.get() or self.path_var.get() == os.path.expanduser("~/Downloads"):
@@ -255,6 +288,7 @@ class MainWindow(ctk.CTkFrame):
         self.add_frame.pack_forget()
         self.url_var.set("")
         self.name_var.set("")
+        self._pending_headers = None
         
     def _browse_path(self):
         import tkinter.filedialog as fd
@@ -269,7 +303,9 @@ class MainWindow(ctk.CTkFrame):
         
         is_ydl = getattr(self, '_pending_is_ydl', False)
         ydl_format_id = getattr(self, '_pending_ydl_format_id', None)
+        headers = getattr(self, '_pending_headers', None)
         
         if url and path:
-            self.callbacks['on_add'](url, path, name if name else None, is_ydl, ydl_format_id)
             self._hide_add_frame()
+            self.callbacks['on_add'](url, path, name if name else None, is_ydl, ydl_format_id, headers)
+

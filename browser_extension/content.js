@@ -1,26 +1,31 @@
-let isExtensionEnabled = true;
+let videoButtonsEnabled = true;
 
-chrome.storage.local.get(['enabled'], (result) => {
-    if (result.enabled !== undefined) {
-        isExtensionEnabled = result.enabled;
+chrome.storage.local.get({ showVideoButtons: true }, (data) => {
+    videoButtonsEnabled = data.showVideoButtons;
+    if (videoButtonsEnabled) {
+        document.querySelectorAll('video').forEach(injectButton);
     }
 });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "toggle") {
-        isExtensionEnabled = request.enabled;
-        if (!isExtensionEnabled) {
-            document.querySelectorAll('.vdm-container').forEach(c => c.style.display = 'none');
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.showVideoButtons !== undefined) {
+        videoButtonsEnabled = changes.showVideoButtons.newValue;
+        if (!videoButtonsEnabled) {
+            document.querySelectorAll('.vdm-btn-container').forEach(el => el.remove());
+            document.querySelectorAll('video').forEach(v => delete v.dataset.vdmInjected);
+        } else {
+            document.querySelectorAll('video').forEach(injectButton);
         }
     }
 });
 
 function injectButton(videoElement) {
+    if (!videoButtonsEnabled) return;
     if (videoElement.dataset.vdmInjected) return;
     videoElement.dataset.vdmInjected = "true";
     
     let container = document.createElement("div");
-    container.classList.add("vdm-container");
+    container.className = "vdm-btn-container";
     container.style.position = "absolute";
     container.style.zIndex = "999999";
     container.style.display = "flex";
@@ -65,11 +70,6 @@ function injectButton(videoElement) {
             container.remove();
             return;
         }
-
-        if (!isExtensionEnabled) {
-            container.style.display = 'none';
-            return;
-        }
         
         let rect = videoElement.getBoundingClientRect();
         
@@ -98,33 +98,32 @@ function injectButton(videoElement) {
         e.preventDefault();
         e.stopPropagation();
         
-        dlBtn.innerText = "Sending to VDM...";
+        dlBtn.innerText = "Connecting to Velocity...";
         dlBtn.style.backgroundColor = "#ffc107";
         dlBtn.style.color = "black";
         
-        fetch('http://127.0.0.1:6800/download', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                url: window.location.href, 
-                type: 'video_page' 
-            })
-        }).then(res => {
-            dlBtn.innerText = "Sent to VDM!";
-            dlBtn.style.backgroundColor = "#28a745";
-            dlBtn.style.color = "white";
-            setTimeout(() => { 
-                dlBtn.innerText = "📥 Download Video"; 
-                dlBtn.style.backgroundColor = "#007bff";
-            }, 2000);
-        }).catch(err => {
-            dlBtn.innerText = "App Not Running!";
-            dlBtn.style.backgroundColor = "#dc3545";
-            dlBtn.style.color = "white";
-            setTimeout(() => { 
-                dlBtn.innerText = "📥 Download Video"; 
-                dlBtn.style.backgroundColor = "#007bff";
-            }, 2000);
+        chrome.runtime.sendMessage({
+            action: "download_video",
+            url: window.location.href,
+            title: document.title
+        }, (response) => {
+            if (chrome.runtime.lastError || !response || !response.success) {
+                dlBtn.innerText = "App Not Running!";
+                dlBtn.style.backgroundColor = "#dc3545";
+                dlBtn.style.color = "white";
+                setTimeout(() => { 
+                    dlBtn.innerText = "📥 Download Video"; 
+                    dlBtn.style.backgroundColor = "#007bff";
+                }, 2500);
+            } else {
+                dlBtn.innerText = "Sent to Velocity!";
+                dlBtn.style.backgroundColor = "#28a745";
+                dlBtn.style.color = "white";
+                setTimeout(() => { 
+                    dlBtn.innerText = "📥 Download Video"; 
+                    dlBtn.style.backgroundColor = "#007bff";
+                }, 2000);
+            }
         });
     };
     
@@ -138,9 +137,9 @@ function injectButton(videoElement) {
 }
 
 const observer = new MutationObserver((mutations) => {
+    if (!videoButtonsEnabled) return;
     let videos = document.querySelectorAll('video');
     videos.forEach(injectButton);
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
-document.querySelectorAll('video').forEach(injectButton);

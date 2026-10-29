@@ -84,16 +84,31 @@ class RecoverURLDialog(ctk.CTkToplevel):
             self.destroy()
 
 class VideoFormatDialog(ctk.CTkToplevel):
-    def __init__(self, parent, info, callback):
+    def __init__(self, parent, info, callback, default_path=None):
         super().__init__(parent)
-        self.title("Download Video")
-        self.geometry("500x350")
+        self.title("Download Video - Velocity")
+        self.geometry("560x420")
         self.callback = callback
         self.info = info
         
+        if default_path:
+            self.default_path = default_path
+        else:
+            try:
+                from download_manager.services.settings import settings
+                self.default_path = settings.get("default_download_path")
+            except Exception:
+                self.default_path = os.path.expanduser("~/Downloads")
+                
+        self.path_var = ctk.StringVar(value=self.default_path)
+        self.name_var = ctk.StringVar()
+        
         # Make the dialog modal
         self.transient(parent)
-        self.grab_set()
+        try:
+            self.grab_set()
+        except Exception:
+            pass
         
         self._build_ui()
         
@@ -101,17 +116,17 @@ class VideoFormatDialog(ctk.CTkToplevel):
         frame = ctk.CTkFrame(self)
         frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=20)
         
-        ctk.CTkLabel(frame, text="Found Video!", font=("Segoe UI", 20, "bold")).pack(anchor="w", pady=(0, 10))
+        ctk.CTkLabel(frame, text="Found Video Stream!", font=("Segoe UI", 18, "bold")).pack(anchor="w", pady=(0, 5))
         
-        title_label = ctk.CTkLabel(frame, text=self.info.get('title', ''), wraplength=450, justify="left")
-        title_label.pack(anchor="w", pady=5)
+        title_text = self.info.get('title', 'Video')
+        title_label = ctk.CTkLabel(frame, text=title_text, wraplength=500, justify="left", font=("Segoe UI", 12))
+        title_label.pack(anchor="w", pady=(0, 15))
         
-        ctk.CTkLabel(frame, text="Select Quality:", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        ctk.CTkLabel(frame, text="Select Quality:", font=("Segoe UI", 13, "bold")).pack(anchor="w", pady=(5, 3))
         
         formats = self.info.get('formats', [])
-        
         if not formats:
-            ctk.CTkLabel(frame, text="No direct media formats found for this video.", text_color="red").pack(anchor="w")
+            ctk.CTkLabel(frame, text="No media formats found for this video.", text_color="red").pack(anchor="w")
             btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
             btn_frame.pack(fill="x", pady=20)
             ctk.CTkButton(btn_frame, text="Close", command=self.destroy, fg_color="gray", width=100).pack(side="right")
@@ -120,30 +135,207 @@ class VideoFormatDialog(ctk.CTkToplevel):
         options = [f['label'] for f in formats]
         self.format_map = {f['label']: f for f in formats}
         
-        self.combo = ctk.CTkOptionMenu(frame, values=options, width=450)
-        self.combo.pack(anchor="w", pady=5)
+        self.combo = ctk.CTkOptionMenu(frame, values=options, width=500, command=self._on_format_changed)
+        self.combo.pack(anchor="w", pady=(0, 15))
         self.combo.set(options[0])
         
-        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=30)
+        # Save To path
+        ctk.CTkLabel(frame, text="Save To:", font=("Segoe UI", 13, "bold")).pack(anchor="w", pady=(5, 3))
+        path_box = ctk.CTkFrame(frame, fg_color="transparent")
+        path_box.pack(fill="x", pady=(0, 15))
+        ctk.CTkEntry(path_box, textvariable=self.path_var, width=410).pack(side=ctk.LEFT, padx=(0, 10))
+        ctk.CTkButton(path_box, text="Browse", width=80, command=self._browse).pack(side=ctk.LEFT)
         
-        ctk.CTkButton(btn_frame, text="Download Now", command=self._submit, width=150, height=40, font=("", 14, "bold")).pack(side="right", padx=5)
-        ctk.CTkButton(btn_frame, text="Cancel", command=self.destroy, fg_color="gray", hover_color="#555", width=100, height=40).pack(side="right", padx=5)
+        # Initial file name
+        first_fmt = self.format_map.get(options[0])
+        ext = first_fmt.get('ext', 'mp4') if first_fmt else 'mp4'
+        self.name_var.set(f"{title_text}.{ext}")
+        
+        # Buttons
+        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(15, 0))
+        
+        ctk.CTkButton(btn_frame, text="Download Now", command=self._submit, width=150, height=38, 
+                       font=("Segoe UI", 14, "bold"), fg_color="#28a745", hover_color="#218838").pack(side=ctk.RIGHT, padx=5)
+        ctk.CTkButton(btn_frame, text="Cancel", command=self.destroy, fg_color="gray", hover_color="#555", width=90, height=38).pack(side=ctk.RIGHT, padx=5)
+        
+    def _browse(self):
+        path = fd.askdirectory(initialdir=self.path_var.get())
+        if path:
+            self.path_var.set(path)
+            
+    def _on_format_changed(self, choice):
+        f = self.format_map.get(choice)
+        if f:
+            ext = f.get('ext', 'mp4')
+            title_text = self.info.get('title', 'Video')
+            self.name_var.set(f"{title_text}.{ext}")
         
     def _submit(self):
         selected_label = self.combo.get()
         f = self.format_map.get(selected_label)
         if f:
-            filename = f"{self.info.get('title')}.{f['ext']}"
+            ext = f.get('ext', 'mp4')
+            filename = self.name_var.get().strip() or f"{self.info.get('title')}.{ext}"
+            save_path = self.path_var.get().strip() or self.default_path
+            format_id = f.get('format_id', 'bestvideo+bestaudio/best')
             
-            if 'format_id' in f:
-                # Use Yt-dlp Engine
-                self.callback(self.info['original_url'], filename, is_ydl=True, ydl_format_id=f['format_id'])
-            else:
-                # Use standard Request Engine
-                self.callback(f['url'], filename, is_ydl=False, ydl_format_id=None)
+            try:
+                self.callback(self.info['original_url'], save_path, filename, is_ydl=True, ydl_format_id=format_id)
+            except TypeError:
+                self.callback(self.info['original_url'], filename, is_ydl=True, ydl_format_id=format_id)
                 
             self.destroy()
+
+class SniffingDialog(ctk.CTkToplevel):
+    def __init__(self, parent, url: str, callback, default_path=None):
+        super().__init__(parent)
+        self.title("Sniffing Video - Velocity")
+        self.geometry("460x200")
+        self.resizable(False, False)
+        
+        self.parent = parent
+        self.url = url
+        self.callback = callback
+        self.is_closed = False
+        
+        if default_path:
+            self.default_path = default_path
+        else:
+            try:
+                from download_manager.services.settings import settings
+                self.default_path = settings.get("default_download_path")
+            except Exception:
+                self.default_path = os.path.expanduser("~/Downloads")
+                
+        self.transient(parent)
+        self.attributes('-topmost', True)
+        try:
+            self.grab_set()
+        except Exception:
+            pass
+        
+        try:
+            self.update_idletasks()
+            pw = parent.winfo_width()
+            ph = parent.winfo_height()
+            px = parent.winfo_rootx()
+            py = parent.winfo_rooty()
+            w, h = 460, 200
+            x = px + max(0, (pw - w) // 2)
+            y = py + max(0, (ph - h) // 2)
+            self.geometry(f"{w}x{h}+{x}+{y}")
+        except Exception:
+            pass
+
+        self._build_ui()
+        self._start_sniffing()
+
+    def _build_ui(self):
+        frame = ctk.CTkFrame(self)
+        frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(frame, text="🔍 Extracting video stream info...", font=("Segoe UI", 15, "bold")).pack(anchor="w", pady=(2, 2))
+        ctk.CTkLabel(frame, text="Checking available qualities up to 4K...", font=("Segoe UI", 11), text_color="#aaaaaa").pack(anchor="w", pady=(0, 12))
+        
+        # Animated Progress Bar
+        self.progress_bar = ctk.CTkProgressBar(frame, mode="indeterminate", height=10)
+        self.progress_bar.pack(fill="x", pady=(0, 18))
+        self.progress_bar.start()
+        
+        # Action Buttons frame
+        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_frame.pack(fill="x")
+        
+        # Quick Download button - skips format inspection, downloads max quality immediately
+        self.quick_btn = ctk.CTkButton(
+            btn_frame,
+            text="⚡ Quick Download (Max Quality)",
+            command=self._quick_download,
+            font=("Segoe UI", 12, "bold"),
+            fg_color="#1f538d",
+            hover_color="#14375e",
+            height=36
+        )
+        self.quick_btn.pack(side="left")
+        
+        # Cancel button
+        self.cancel_btn = ctk.CTkButton(
+            btn_frame,
+            text="Cancel",
+            command=self._cancel,
+            fg_color="gray",
+            hover_color="#555",
+            width=80,
+            height=36
+        )
+        self.cancel_btn.pack(side="right")
+        
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+
+    def _start_sniffing(self):
+        from download_manager.services.video_extractor import extract_video_info
+        extract_video_info(self.url, self._on_success, self._on_error)
+
+    def _quick_download(self):
+        if self.is_closed:
+            return
+        self.is_closed = True
+        try:
+            self.progress_bar.stop()
+        except Exception:
+            pass
+        self.destroy()
+        
+        try:
+            self.callback(self.url, self.default_path, filename=None, is_ydl=True, ydl_format_id='bestvideo+bestaudio/best')
+        except TypeError:
+            self.callback(self.url, None, is_ydl=True, ydl_format_id='bestvideo+bestaudio/best')
+
+    def _cancel(self):
+        if self.is_closed:
+            return
+        self.is_closed = True
+        try:
+            self.progress_bar.stop()
+        except Exception:
+            pass
+        self.destroy()
+
+    def _on_success(self, info):
+        if self.is_closed:
+            return
+            
+        def _open_format_dialog():
+            if self.is_closed:
+                return
+            self.is_closed = True
+            try:
+                self.progress_bar.stop()
+            except Exception:
+                pass
+            self.destroy()
+            VideoFormatDialog(self.parent, info, self.callback, default_path=self.default_path)
+            
+        self.parent.after(0, _open_format_dialog)
+
+    def _on_error(self, err):
+        if self.is_closed:
+            return
+            
+        def _show_error():
+            if self.is_closed:
+                return
+            self.is_closed = True
+            try:
+                self.progress_bar.stop()
+            except Exception:
+                pass
+            self.destroy()
+            import tkinter.messagebox
+            tkinter.messagebox.showerror("Video Extraction Error", f"Failed to extract video streams:\n\n{err}")
+            
+        self.parent.after(0, _show_error)
 
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, parent):
@@ -161,6 +353,7 @@ class SettingsDialog(ctk.CTkToplevel):
         # Variables
         self.path_var = ctk.StringVar(value=self.settings.get("default_download_path"))
         self.startup_var = ctk.BooleanVar(value=self.settings.get("launch_on_startup"))
+        self.start_minimized_var = ctk.BooleanVar(value=self.settings.get("start_minimized_to_tray", True))
         self.max_downloads_var = ctk.IntVar(value=self.settings.get("max_concurrent_downloads"))
         
         self.speed_limit_var = ctk.IntVar(value=self.settings.get("speed_limit_kbps"))
@@ -187,7 +380,8 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkEntry(path_frame, textvariable=self.path_var).pack(side="left", fill="x", expand=True, padx=(0, 10))
         ctk.CTkButton(path_frame, text="Browse", width=80, command=self._browse_path).pack(side="right")
         
-        ctk.CTkSwitch(tab_general, text="Launch Velocity on Windows Startup", variable=self.startup_var).pack(anchor="w", padx=10, pady=20)
+        ctk.CTkSwitch(tab_general, text="Launch Velocity on Windows Startup", variable=self.startup_var).pack(anchor="w", padx=10, pady=(15, 5))
+        ctk.CTkSwitch(tab_general, text="Start Minimized in System Tray on Startup", variable=self.start_minimized_var).pack(anchor="w", padx=30, pady=(0, 15))
         
         ctk.CTkLabel(tab_general, text="Max Concurrent Downloads (1-10):", font=("", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
         slider_frame = ctk.CTkFrame(tab_general, fg_color="transparent")
@@ -248,7 +442,8 @@ class SettingsDialog(ctk.CTkToplevel):
                         exe_path = sys.executable
                     else:
                         exe_path = os.path.abspath(sys.argv[0])
-                    winreg.SetValueEx(key, "VelocityDownloadManager", 0, winreg.REG_SZ, f'"{exe_path}"')
+                    cmd = f'"{exe_path}" --startup' if self.start_minimized_var.get() else f'"{exe_path}"'
+                    winreg.SetValueEx(key, "VelocityDownloadManager", 0, winreg.REG_SZ, cmd)
                 else:
                     try:
                         winreg.DeleteValue(key, "VelocityDownloadManager")
@@ -259,6 +454,7 @@ class SettingsDialog(ctk.CTkToplevel):
                 print(f"Failed to set startup registry key: {e}")
                 
             self.settings.set("launch_on_startup", self.startup_var.get())
+            self.settings.set("start_minimized_to_tray", self.start_minimized_var.get())
             self.settings.set("max_concurrent_downloads", int(self.max_downloads_var.get()))
             self.settings.set("max_threads_per_download", self.threads_var.get())
             self.settings.set("shutdown_after_download", self.shutdown_var.get())

@@ -1,24 +1,52 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const enableToggle = document.getElementById('enableToggle');
+document.addEventListener("DOMContentLoaded", () => {
+  const toggleIntercept = document.getElementById("toggleIntercept");
+  const toggleVideo = document.getElementById("toggleVideo");
+  const interceptDesc = document.getElementById("interceptDesc");
+  const statusBadge = document.getElementById("statusBadge");
+  const statusText = document.getElementById("statusText");
 
-    // Load initial state
-    chrome.storage.local.get(['enabled'], (result) => {
-        // default to true if undefined
-        enableToggle.checked = result.enabled !== false; 
+  // Load current settings
+  chrome.storage.local.get({
+    interceptDownloads: true,
+    showVideoButtons: true
+  }, (items) => {
+    toggleIntercept.checked = items.interceptDownloads;
+    toggleVideo.checked = items.showVideoButtons;
+    updateInterceptText(items.interceptDownloads);
+  });
+
+  // Toggle Intercept Downloads
+  toggleIntercept.addEventListener("change", () => {
+    const enabled = toggleIntercept.checked;
+    chrome.storage.local.set({ interceptDownloads: enabled }, () => {
+      updateInterceptText(enabled);
     });
+  });
 
-    // Handle change
-    enableToggle.addEventListener('change', (e) => {
-        const isEnabled = e.target.checked;
-        
-        // Save to storage
-        chrome.storage.local.set({ enabled: isEnabled });
-        
-        // Notify all tabs to update their state
-        chrome.tabs.query({}, (tabs) => {
-            for (let t of tabs) {
-                chrome.tabs.sendMessage(t.id, { action: "toggle", enabled: isEnabled }).catch(() => {});
-            }
-        });
+  // Toggle Video Buttons
+  toggleVideo.addEventListener("change", () => {
+    const enabled = toggleVideo.checked;
+    chrome.storage.local.set({ showVideoButtons: enabled });
+  });
+
+  function updateInterceptText(enabled) {
+    if (enabled) {
+      interceptDesc.textContent = "Forward browser downloads to Velocity";
+      interceptDesc.style.color = "#8e95a5";
+    } else {
+      interceptDesc.textContent = "Off • Downloads handled natively by browser";
+      interceptDesc.style.color = "#f87171";
+    }
+  }
+
+  // Ping Velocity local server to check if running
+  fetch("http://127.0.0.1:6800/download", { method: "OPTIONS" })
+    .then(() => {
+      statusBadge.className = "status-badge";
+      statusText.textContent = "App Running";
+    })
+    .catch(() => {
+      statusBadge.className = "status-badge offline";
+      statusText.textContent = "App Offline";
     });
 });

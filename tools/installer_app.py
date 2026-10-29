@@ -46,7 +46,7 @@ class InstallerApp(ctk.CTk):
         self.args, _ = parser.parse_known_args()
 
         self.title("Velocity Download Manager - Setup")
-        self.geometry("500x450")
+        self.geometry("520x520")
         self.resizable(False, False)
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
@@ -66,42 +66,69 @@ class InstallerApp(ctk.CTk):
         else:
             self._build_install_ui()
 
+    def _is_already_installed(self):
+        return (
+            os.path.exists(os.path.join(self.single_user_dir, 'Velocity.exe')) or
+            os.path.exists(os.path.join(self.all_users_dir, 'Velocity.exe')) or
+            os.path.exists(os.path.join(self.install_dir, 'Velocity.exe')) or
+            os.path.exists(os.path.join(Path.home(), ".download_manager"))
+        )
+
     def _build_install_ui(self):
-        self.lbl_title = ctk.CTkLabel(self, text="Velocity Setup", font=("Segoe UI", 28, "bold"))
-        self.lbl_title.pack(pady=(20, 10))
+        is_installed = self._is_already_installed()
         
-        self.lbl_desc = ctk.CTkLabel(self, text="This will install Velocity Download Manager on your computer.", font=("Segoe UI", 14))
-        self.lbl_desc.pack(pady=(0, 20))
+        self.lbl_title = ctk.CTkLabel(self, text="Velocity Setup", font=("Segoe UI", 28, "bold"))
+        self.lbl_title.pack(pady=(15, 5))
+        
+        desc_text = "Velocity is currently installed. Choose to Update or Completely Uninstall." if is_installed else "This will install Velocity Download Manager on your computer."
+        self.lbl_desc = ctk.CTkLabel(self, text=desc_text, font=("Segoe UI", 13), wraplength=460)
+        self.lbl_desc.pack(pady=(0, 15))
         
         user_frame = ctk.CTkFrame(self, fg_color="transparent")
-        user_frame.pack(fill="x", padx=40, pady=(0, 15))
+        user_frame.pack(fill="x", padx=40, pady=(0, 10))
         
-        ctk.CTkRadioButton(user_frame, text="Install for me only", variable=self.user_type_var, value="single", command=self._on_user_type_change).pack(anchor="w", pady=5)
+        ctk.CTkRadioButton(user_frame, text="Install for me only", variable=self.user_type_var, value="single", command=self._on_user_type_change).pack(anchor="w", pady=4)
         
         all_text = "Install for all users (Requires Admin)" if not is_admin() else "Install for all users"
-        ctk.CTkRadioButton(user_frame, text=all_text, variable=self.user_type_var, value="all", command=self._on_user_type_change).pack(anchor="w", pady=5)
+        ctk.CTkRadioButton(user_frame, text=all_text, variable=self.user_type_var, value="all", command=self._on_user_type_change).pack(anchor="w", pady=4)
 
         path_frame = ctk.CTkFrame(self, fg_color="transparent")
-        path_frame.pack(fill="x", padx=40, pady=(0, 15))
+        path_frame.pack(fill="x", padx=40, pady=(0, 10))
         
         self.path_var = ctk.StringVar(value=self.install_dir)
         ctk.CTkLabel(path_frame, text="Install Location:", font=("Segoe UI", 12)).pack(anchor="w")
         
         entry_frame = ctk.CTkFrame(path_frame, fg_color="transparent")
-        entry_frame.pack(fill="x")
+        entry_frame.pack(fill="x", pady=(2, 0))
         ctk.CTkEntry(entry_frame, textvariable=self.path_var).pack(side="left", fill="x", expand=True, padx=(0, 10))
         ctk.CTkButton(entry_frame, text="Browse", width=70, command=self._browse).pack(side="left")
         
-        self.progress = ctk.CTkProgressBar(self, width=400)
+        # Clean Install option
+        clean_frame = ctk.CTkFrame(self, fg_color="transparent")
+        clean_frame.pack(fill="x", padx=40, pady=(0, 10))
+        self.clean_install_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(clean_frame, text="Clean install (wipe old database, history & settings)", variable=self.clean_install_var, font=("Segoe UI", 12)).pack(anchor="w")
+
+        self.progress = ctk.CTkProgressBar(self, width=420)
         self.progress.set(0)
         
         self.lbl_status = ctk.CTkLabel(self, text="", font=("Segoe UI", 12))
         
-        self.btn_action = ctk.CTkButton(self, text="Install", font=("Segoe UI", 16, "bold"), height=45, command=self.start_install)
-        self.btn_action.pack(pady=10)
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(pady=10)
+        
+        action_text = "Update / Reinstall" if is_installed else "Install"
+        self.btn_action = ctk.CTkButton(btn_frame, text=action_text, font=("Segoe UI", 15, "bold"), width=160, height=42, command=self.start_install)
+        self.btn_action.pack(side="left", padx=8)
+        
+        if is_installed:
+            self.btn_uninstall = ctk.CTkButton(btn_frame, text="Complete Uninstall", fg_color="#C0392B", hover_color="#922B21", font=("Segoe UI", 14, "bold"), width=160, height=42, command=self.start_uninstall)
+            self.btn_uninstall.pack(side="left", padx=8)
         
         if self.args.auto_install:
             self.btn_action.configure(state="disabled")
+            if hasattr(self, 'btn_uninstall'):
+                self.btn_uninstall.configure(state="disabled")
             for child in user_frame.winfo_children():
                 child.configure(state="disabled")
             for child in entry_frame.winfo_children():
@@ -109,19 +136,19 @@ class InstallerApp(ctk.CTk):
             self.after(500, self.start_install)
 
     def _build_uninstall_ui(self):
-        self.lbl_title = ctk.CTkLabel(self, text="Uninstall Velocity", font=("Segoe UI", 28, "bold"))
-        self.lbl_title.pack(pady=(20, 10))
+        self.lbl_title = ctk.CTkLabel(self, text="Complete Uninstall", font=("Segoe UI", 26, "bold"))
+        self.lbl_title.pack(pady=(25, 10))
         
-        self.lbl_desc = ctk.CTkLabel(self, text="This will completely remove Velocity Download Manager\nfrom your computer.", font=("Segoe UI", 14))
+        self.lbl_desc = ctk.CTkLabel(self, text="This will completely remove Velocity Download Manager,\nincluding all downloaded history, database, settings,\nand shortcuts from your computer.", font=("Segoe UI", 13), justify="center")
         self.lbl_desc.pack(pady=(0, 20))
         
-        self.progress = ctk.CTkProgressBar(self, width=400)
+        self.progress = ctk.CTkProgressBar(self, width=420)
         self.progress.set(0)
         
         self.lbl_status = ctk.CTkLabel(self, text="", font=("Segoe UI", 12))
         
-        self.btn_action = ctk.CTkButton(self, text="Uninstall", fg_color="#C0392B", hover_color="#922B21", font=("Segoe UI", 16, "bold"), height=45, command=self.start_uninstall)
-        self.btn_action.pack(pady=30)
+        self.btn_action = ctk.CTkButton(self, text="Uninstall Everything", fg_color="#C0392B", hover_color="#922B21", font=("Segoe UI", 16, "bold"), height=45, command=self.start_uninstall)
+        self.btn_action.pack(pady=25)
 
     def _on_user_type_change(self):
         if self.user_type_var.get() == "single":
@@ -154,6 +181,8 @@ class InstallerApp(ctk.CTk):
                 return
 
         self.btn_action.configure(state="disabled")
+        if hasattr(self, 'btn_uninstall'):
+            self.btn_uninstall.configure(state="disabled")
         self.progress.pack(pady=(0, 10))
         self.lbl_status.pack(pady=(0, 10))
         threading.Thread(target=self._install_process, daemon=True).start()
@@ -175,9 +204,69 @@ class InstallerApp(ctk.CTk):
                 return
 
         self.btn_action.configure(state="disabled")
+        if hasattr(self, 'btn_uninstall'):
+            self.btn_uninstall.configure(state="disabled")
         self.progress.pack(pady=(0, 10))
         self.lbl_status.pack(pady=(0, 10))
         threading.Thread(target=self._uninstall_process, daemon=True).start()
+
+    def _wipe_user_data(self):
+        # 1. Database and history directory
+        db_dirs = [
+            os.path.join(Path.home(), ".download_manager"),
+            os.path.join(Path.home(), ".velocity"),
+        ]
+        for d in db_dirs:
+            if os.path.exists(d):
+                try:
+                    shutil.rmtree(d, onerror=on_rm_error)
+                except Exception as e:
+                    print(f"Error wiping {d}: {e}")
+
+        # 2. Settings and app data
+        local_app = os.environ.get('LOCALAPPDATA', '')
+        roam_app = os.environ.get('APPDATA', '')
+        settings_dirs = [
+            os.path.join(local_app, 'VelocityDownloadManager'),
+            os.path.join(local_app, 'Velocity'),
+            os.path.join(roam_app, 'VelocityDownloadManager'),
+            os.path.join(roam_app, 'Velocity'),
+        ]
+        for d in settings_dirs:
+            if d and os.path.exists(d):
+                try:
+                    shutil.rmtree(d, onerror=on_rm_error)
+                except Exception as e:
+                    print(f"Error wiping {d}: {e}")
+
+    def _wipe_shortcuts(self):
+        shortcut_names = [
+            'Velocity Download Manager.lnk',
+            'Velocity.lnk'
+        ]
+        shortcut_dirs = [
+            os.path.join(os.path.expanduser('~'), 'Desktop'),
+            os.path.join(os.environ.get('PUBLIC', 'C:\\Users\\Public'), 'Desktop'),
+            os.path.join(os.environ.get('APPDATA', ''), 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+            os.path.join(os.environ.get('ALLUSERSPROFILE', 'C:\\ProgramData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+        ]
+        for d in shortcut_dirs:
+            if not d or not os.path.exists(d):
+                continue
+            for name in shortcut_names:
+                p = os.path.join(d, name)
+                if os.path.exists(p):
+                    try:
+                        os.chmod(p, stat.S_IWRITE)
+                        os.remove(p)
+                    except Exception:
+                        pass
+            sub = os.path.join(d, 'Velocity')
+            if os.path.exists(sub) and os.path.isdir(sub):
+                try:
+                    shutil.rmtree(sub, onerror=on_rm_error)
+                except Exception:
+                    pass
 
     def _install_process(self):
         try:
@@ -199,8 +288,12 @@ class InstallerApp(ctk.CTk):
             self._update_status("Stopping running instances...", 0.2)
             subprocess.run(['taskkill', '/F', '/IM', 'Velocity.exe'], capture_output=True)
             time.sleep(1) # Give it a moment to close file handles
+
+            if getattr(self, 'clean_install_var', None) and self.clean_install_var.get():
+                self._update_status("Clean install: Resetting database & history...", 0.25)
+                self._wipe_user_data()
             
-            self._update_status("Copying files...", 0.3)
+            self._update_status("Copying files...", 0.35)
             if os.path.exists(self.install_dir):
                 try:
                     shutil.rmtree(self.install_dir, onerror=on_rm_error)
@@ -251,43 +344,38 @@ class InstallerApp(ctk.CTk):
             
     def _uninstall_process(self):
         try:
-            self._update_status("Stopping running instances...", 0.2)
+            self._update_status("Stopping running instances...", 0.15)
             subprocess.run(['taskkill', '/F', '/IM', 'Velocity.exe'], capture_output=True)
             time.sleep(1)
             
-            self._update_status("Removing Application Files...", 0.4)
-            # Remove everything EXCEPT the uninstaller itself if it's running from that directory
-            if os.path.exists(self.install_dir):
-                for item in os.listdir(self.install_dir):
-                    item_path = os.path.join(self.install_dir, item)
-                    if item.lower() == 'uninstall.exe':
-                        continue
-                    try:
-                        if os.path.isdir(item_path):
-                            shutil.rmtree(item_path, onerror=on_rm_error)
-                        else:
-                            os.chmod(item_path, stat.S_IWRITE)
-                            os.remove(item_path)
-                    except Exception:
-                        pass
-                        
-            self._update_status("Removing Shortcuts...", 0.6)
-            if self.user_type_var.get() == "all":
-                desktop_dir = os.environ.get('PUBLIC', 'C:\\Users\\Public') + '\\Desktop'
-            else:
-                desktop_dir = os.path.join(os.path.expanduser('~'), 'Desktop')
-            shortcut_path = os.path.join(desktop_dir, 'Velocity Download Manager.lnk')
-            if os.path.exists(shortcut_path):
-                try:
-                    os.remove(shortcut_path)
-                except:
-                    pass
-                    
-            self._update_status("Removing Registry Entries...", 0.8)
+            self._update_status("Removing Application Files...", 0.35)
+            # Remove from target installation directories
+            for target_dir in set([self.install_dir, self.single_user_dir, self.all_users_dir]):
+                if os.path.exists(target_dir):
+                    for item in os.listdir(target_dir):
+                        item_path = os.path.join(target_dir, item)
+                        if item.lower() == 'uninstall.exe':
+                            continue
+                        try:
+                            if os.path.isdir(item_path):
+                                shutil.rmtree(item_path, onerror=on_rm_error)
+                            else:
+                                os.chmod(item_path, stat.S_IWRITE)
+                                os.remove(item_path)
+                        except Exception:
+                            pass
+                            
+            self._update_status("Wiping Database & Download History...", 0.6)
+            self._wipe_user_data()
+
+            self._update_status("Removing Shortcuts...", 0.75)
+            self._wipe_shortcuts()
+            
+            self._update_status("Removing Registry Entries...", 0.9)
             self._unregister_with_windows()
             
-            self._update_status("Uninstallation Complete!", 1.0)
-            self.after(0, lambda: self.btn_action.configure(text="Close", state="normal", command=self._finish_uninstall))
+            self._update_status("Complete Uninstallation Successful!", 1.0)
+            self.after(0, lambda: self.btn_action.configure(text="Close", state="normal", fg_color="#1f538d", hover_color="#14375e", command=self._finish_uninstall))
             
         except Exception as e:
             self._update_status(f"Error: {str(e)}", 0)
@@ -319,14 +407,28 @@ class InstallerApp(ctk.CTk):
             print(f"Failed to write registry keys: {e}")
 
     def _unregister_with_windows(self):
-        try:
-            hive = winreg.HKEY_LOCAL_MACHINE if self.user_type_var.get() == "all" else winreg.HKEY_CURRENT_USER
-            key_path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VelocityDownloadManager"
-            winreg.DeleteKey(hive, key_path)
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            print(f"Failed to remove registry keys: {e}")
+        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            # Startup Run entry
+            try:
+                with winreg.OpenKey(hive, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE) as key:
+                    for name in ("Velocity", "VelocityDownloadManager"):
+                        try:
+                            winreg.DeleteValue(key, name)
+                        except FileNotFoundError:
+                            pass
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+                
+            # Uninstall entry
+            for name in ("VelocityDownloadManager", "Velocity"):
+                try:
+                    winreg.DeleteKey(hive, rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{name}")
+                except FileNotFoundError:
+                    pass
+                except Exception:
+                    pass
 
     def _update_status(self, text, val):
         self.after(0, lambda: self.lbl_status.configure(text=text))
@@ -341,13 +443,13 @@ class InstallerApp(ctk.CTk):
         self.destroy()
         
     def _finish_uninstall(self):
-        # We need to delete the uninstall.exe and the directory itself.
-        # We do this by launching a detached cmd process that waits a second, deletes it, and exits.
+        # We delete uninstall.exe and any remaining directories by launching a detached cmd process.
         try:
-            if os.path.exists(self.install_dir):
-                cmd = f'ping 127.0.0.1 -n 2 > nul & rmdir /s /q "{self.install_dir}"'
-                subprocess.Popen(f'cmd.exe /c "{cmd}"', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        except:
+            for d in set([self.install_dir, self.single_user_dir, self.all_users_dir]):
+                if os.path.exists(d):
+                    cmd = f'ping 127.0.0.1 -n 2 > nul & rmdir /s /q "{d}"'
+                    subprocess.Popen(f'cmd.exe /c "{cmd}"', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        except Exception:
             pass
         self.destroy()
 

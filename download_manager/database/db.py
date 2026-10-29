@@ -30,7 +30,8 @@ def init_db():
             add_time TEXT,
             completion_time TEXT,
             is_ydl INTEGER DEFAULT 0,
-            ydl_format_id TEXT
+            ydl_format_id TEXT,
+            headers TEXT DEFAULT '{}'
         )
     ''')
     
@@ -44,7 +45,16 @@ def init_db():
     
     try:
         cursor.execute("ALTER TABLE downloads ADD COLUMN is_ydl INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
         cursor.execute("ALTER TABLE downloads ADD COLUMN ydl_format_id TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE downloads ADD COLUMN headers TEXT DEFAULT '{}'")
     except sqlite3.OperationalError:
         pass
     

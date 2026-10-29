@@ -16,6 +16,7 @@ args = [
     f'--add-data={ctk_path};customtkinter/',
     f'--add-data={yt_dlp_path};yt_dlp/',
     '--add-data=download_manager/velocity.ico;download_manager/',
+    '--add-data=download_manager/velocity.png;download_manager/',
     '--add-data=download_manager/ffmpeg.exe;download_manager/',
     '--add-data=download_manager/ffprobe.exe;download_manager/',
     '--exclude-module=yt_dlp',

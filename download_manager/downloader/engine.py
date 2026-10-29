@@ -48,10 +48,16 @@ class DownloadTask:
         self.num_threads = num_threads if num_threads else settings.get("max_threads_per_download")
         self.progress_callback = progress_callback
         self.status_callback = status_callback
+        self.custom_headers = self.item.get_headers()
         self.session = requests.Session()
+        default_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0"
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0"
+            "User-Agent": self.custom_headers.get("User-Agent", default_ua)
         })
+        if self.custom_headers:
+            for k, v in self.custom_headers.items():
+                if k.lower() != "user-agent":
+                    self.session.headers[k] = v
         
         self.is_paused = False
         self.is_cancelled = False
@@ -84,7 +90,11 @@ class DownloadTask:
             self._update_status("Starting")
             
             # 1. Fetch info
-            info = get_file_info(self.item.url, self.session)
+            info = get_file_info(self.item.url, self.session, self.custom_headers)
+            
+            # If the URL redirected to a direct pre-signed blob/CDN URL, record it
+            if info.get('url') and info['url'] != self.item.url:
+                self.item.url = info['url']
             
             # If size changed or it's a completely new file, reset progress
             if self.item.filesize != 0 and self.item.filesize != info['filesize']:
@@ -128,24 +138,40 @@ class DownloadTask:
                 self._update_status("Error")
 
     def _download_single_thread(self):
+        response = None
         try:
-            response = self.session.get(self.item.url, stream=True, timeout=10)
+            response = self.session.get(self.item.url, stream=True, timeout=15)
             response.raise_for_status()
             
             with open(self.item.filepath, 'wb') as f:
                 downloaded = 0
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=131072):
                     if self.is_paused or self.is_cancelled:
                         break
                     if chunk:
+                        if self.item.filesize > 0:
+                            remaining = self.item.filesize - downloaded
+                            if remaining <= 0:
+                                break
+                            chunk = chunk[:remaining]
+                            
                         global_limiter.consume(len(chunk))
                         f.write(chunk)
                         downloaded += len(chunk)
                         self.item.downloaded_size = downloaded
                         if self.progress_callback:
                             self.progress_callback(self.item.id, downloaded, "{}")
+                            
+                        if self.item.filesize > 0 and downloaded >= self.item.filesize:
+                            break
         except Exception as e:
             raise e
+        finally:
+            if response is not None:
+                try:
+                    response.close()
+                except Exception:
+                    pass
 
     def _download_multi_thread(self):
         # Calculate parts
@@ -163,10 +189,11 @@ class DownloadTask:
         tasks = []
         for i, start, end in ranges:
             str_i = str(i)
+            part_total = end - start + 1
             downloaded = self.chunks_info_dict.get(str_i, 0)
-            current_start = start + downloaded
-            if current_start <= end:
-                tasks.append((str_i, current_start, end))
+            if downloaded < part_total:
+                current_start = start + downloaded
+                tasks.append((str_i, start, end))
 
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_threads)
         self.futures = []
@@ -181,26 +208,33 @@ class DownloadTask:
             if self.is_paused or self.is_cancelled or self.has_error:
                 break
                 
+            with self._lock:
+                current_total = sum(self.chunks_info_dict.values())
+                if self.item.filesize > 0 and current_total >= self.item.filesize:
+                    # All bytes received!
+                    break
+                
             current_time = time.time()
             if current_time - last_update_time > 0.5: # 2 FPS update
                 if self.progress_callback:
                     with self._lock:
-                        self.item.downloaded_size = sum(self.chunks_info_dict.values())
+                        self.item.downloaded_size = current_total
                         self.item.set_chunks(self.chunks_info_dict)
                         self.progress_callback(self.item.id, self.item.downloaded_size, self.item.chunks_info)
                 last_update_time = current_time
             time.sleep(0.1)
 
         # Final progress update
-        if self.progress_callback:
-            with self._lock:
-                self.item.downloaded_size = sum(self.chunks_info_dict.values())
-                self.item.set_chunks(self.chunks_info_dict)
+        with self._lock:
+            self.item.downloaded_size = sum(self.chunks_info_dict.values())
+            self.item.set_chunks(self.chunks_info_dict)
+            if self.progress_callback:
                 self.progress_callback(self.item.id, self.item.downloaded_size, self.item.chunks_info)
 
-        self.executor.shutdown(wait=True)
+        self.executor.shutdown(wait=False, cancel_futures=True)
 
     def _download_part(self, task_id: str, start: int, end: int):
+        part_total = end - start + 1
         retries = 0
         max_retries = 10
         
@@ -208,11 +242,18 @@ class DownloadTask:
             if self.is_paused or self.is_cancelled or self.has_error:
                 break
                 
-            current_start = start + self.chunks_info_dict.get(task_id, 0)
-            if current_start > end:
-                break  # Finished
+            current_downloaded = self.chunks_info_dict.get(task_id, 0)
+            if current_downloaded >= part_total:
+                break  # Already finished this part!
                 
+            current_start = start + current_downloaded
             headers = {"Range": f"bytes={current_start}-{end}"}
+            if self.custom_headers:
+                for k, v in self.custom_headers.items():
+                    if k.lower() not in ["user-agent", "range"]:
+                        headers[k] = v
+
+            response = None
             try:
                 response = self.session.get(self.item.url, headers=headers, stream=True, timeout=15)
                 response.raise_for_status()
@@ -221,15 +262,25 @@ class DownloadTask:
                 with open(self.item.filepath, 'rb+') as f:
                     f.seek(current_start)
                     
-                    for chunk in response.iter_content(chunk_size=1048576): # 1MB chunk sizes to reduce lock overhead
+                    for chunk in response.iter_content(chunk_size=131072): # 128KB chunks
                         if self.is_paused or self.is_cancelled or self.has_error:
                             break
                         if chunk:
-                            global_limiter.consume(len(chunk))
-                            f.write(chunk)
-                            self.chunks_info_dict[task_id] = self.chunks_info_dict.get(task_id, 0) + len(chunk)
+                            current_dl = self.chunks_info_dict.get(task_id, 0)
+                            remaining = part_total - current_dl
+                            if remaining <= 0:
+                                break
+                            to_write = chunk[:remaining]
+                            global_limiter.consume(len(to_write))
+                            f.write(to_write)
+                            self.chunks_info_dict[task_id] = current_dl + len(to_write)
+                            if self.chunks_info_dict[task_id] >= part_total:
+                                break  # Finished all bytes for this part!
                 
-                # If finished without exception, break out of retry loop
+                # Check if this part finished
+                if self.chunks_info_dict.get(task_id, 0) >= part_total:
+                    break
+                    
                 if not (self.is_paused or self.is_cancelled or self.has_error):
                     break
                     
@@ -237,6 +288,12 @@ class DownloadTask:
                 retries += 1
                 print(f"Part {task_id} failed: {e}. Retrying {retries}/{max_retries}...")
                 time.sleep(2 * retries) # Exponential backoff
+            finally:
+                if response is not None:
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
                 
-        if retries >= max_retries:
+        if retries >= max_retries and self.chunks_info_dict.get(task_id, 0) < part_total:
             self.has_error = True

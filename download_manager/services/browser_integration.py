@@ -23,10 +23,11 @@ class DownloadHandler(BaseHTTPRequestHandler):
                 url = data.get('url')
                 filename = data.get('filename')
                 req_type = data.get('type', 'file')
+                headers = data.get('headers')
                 
                 if url:
                     if hasattr(self.server, 'add_download_cb'):
-                        self.server.add_download_cb(url, filename, req_type)
+                        self.server.add_download_cb(url, filename, req_type, headers)
                         
                     self.send_response(200)
                     self.send_header('Access-Control-Allow-Origin', '*')

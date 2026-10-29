@@ -20,6 +20,7 @@ class SettingsManager:
         self.settings = {
             "default_download_path": os.path.expanduser("~/Downloads"),
             "launch_on_startup": False,
+            "start_minimized_to_tray": True,
             "max_concurrent_downloads": 3,
             "speed_limit_kbps": 0,  # 0 means unlimited
             "max_threads_per_download": 32,
